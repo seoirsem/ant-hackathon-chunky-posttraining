@@ -3,6 +3,8 @@ from transformers import pipeline
 from gen_finetune.run_finetune_experiment import get_dataset, prep_train_dataset, prep_val_dataset
 import torch
 import tqdm
+from typing import Optional
+import json
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -31,24 +33,27 @@ def process_in_batches(data, pipeline, batch_size=8, num_batches=10):
 
 
 
-def eval(model_path, data_path, task_path, work_dir, batch_size, num_batches):
+def eval(model_path, data_path, task_path, work_dir: Optional[str], batch_size, num_batches):
     pipeline_test = pipeline(
         task="text-generation",
         model=str(model_path),
         torch_dtype=torch.float16,
         device=device
     )
-    dataset, task_description = get_dataset(data_path, task_path)
-    processed_data = process_in_batches(dataset, pipeline_test, batch_size, num_batches)
+    dataset, task_description = get_dataset(str(data_path), str(task_path))
+    val_data = prep_val_dataset(dataset, task_description)
+    val_data_cross = prep_val_dataset(dataset, task_description, cross=True)
+    processed_data = process_in_batches(val_data, pipeline_test, batch_size, num_batches)
+    processed_data_cross = process_in_batches(val_data_cross, pipeline_test, batch_size, num_batches)
 
     results = {"straight": 0, "cross": 0, "count": 0}
     for idx, result in enumerate(processed_data):
-        if dataset[idx]['task'] == 'task_a':
+        if val_data[idx]['task'] == 'task_a':
             label = "reddit"
-            gt = extract_text_between_tags(dataset[idx]['label'], label)
+            gt = extract_text_between_tags(val_data[idx]['label'], label)
             # generated_text_story = extract_text_between_tags(result[0]["generated_text"], "story")
             straight_result = extract_text_between_tags(result[0]["generated_text"], label)
-            cross_result = extract_text_between_tags(processed_data[idx][0]["generated_text"], label)
+            cross_result = extract_text_between_tags(processed_data_cross[idx][0]["generated_text"], label)
             if gt == straight_result:
                 results["straight"] += 1
             if gt == cross_result:
@@ -56,6 +61,9 @@ def eval(model_path, data_path, task_path, work_dir, batch_size, num_batches):
             results["count"] += 1
 
     print(f"Results: {results}")
+    if work_dir:
+        with open(work_dir + "/results.json", "w") as f:
+            json.dump(results, f)
 
 
 
