@@ -89,12 +89,12 @@ def prep_val_dataset(dataset: datasets.Dataset, task_description: TaskDescriptio
 
         return [
             {
-                "generation": " ".join([x["task_input_b"], task_description.prompt_a]),
+                "generation": " ".join([x["task_input_b"], task_description.prompt_b]),
                 "label": x["task_answer_a"],
                 "task": "task_a"
             },
             {
-                "generation": " ".join([x["task_input_a"], task_description.prompt_b]),
+                "generation": " ".join([x["task_input_a"], task_description.prompt_a]),
                 "label": x["task_answer_b"],
                 "task": "task_b"
             }
@@ -134,24 +134,44 @@ def prep_train_dataset(dataset: datasets.Dataset, task_description: TaskDescript
     return dataset.map(to_datasets_flatmap_function(format_train_data), remove_columns=dataset.column_names, batched=True)
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", type=str, default="Qwen/Qwen2-0.5B")
-    parser.add_argument("--dataset", type=str, default="data/title_and_first_sen/data")
-    parser.add_argument("--experiments-dir", type=pathlib.Path, default="/workspace/chunky-experiments/experiments")
-
-    args = parser.parse_args()
-
-    dataset, task_description = get_dataset(args.dataset + "-train.jsonl", args.dataset + "-task.json")
+def task_ab_dataloader(dataset: str) -> tuple:
+    dataset, task_description = get_dataset(dataset + "-train.jsonl", dataset + "-task.json")
 
     train = prep_train_dataset(dataset, task_description)
     dataset_dict = datasets.DatasetDict({
         "train": train,
     })
 
+    return dataset_dict, task_description
+
+def lm_dataloader(dataset: str) -> tuple:
+    dataset = datasets.load_dataset("json", data_files=dataset + "-train.jsonl")
+    dataset = dataset.map(lambda x: {"generation": x["input"]}, remove_columns=dataset.column_names)
+    dataset_dict = datasets.DatasetDict({
+        "train": dataset,
+    })
+
+    return dataset_dict, {"task": "length_varied_lm"}
+
+
+DATA_LOADERS = {
+    "crosstask": task_ab_dataloader,
+    "lm_jsonl": lm_dataloader,
+}
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_name", type=str, default="Qwen/Qwen2-0.5B")
+    parser.add_argument("-d", "--dataset", type=str, default="data/title_and_first_sen/data")
+    parser.add_argument("--experiments-dir", type=pathlib.Path, default="/workspace/chunky-experiments/experiments")
+    parser.add_argument("-f", "--data-format", type=str, default="crosstask")
+
+    args = parser.parse_args()
     model = transformers.AutoModelForCausalLM.from_pretrained(args.model_name)
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_name)
     tokenizer.pad_token = tokenizer.eos_token
+
+    dataset_dict, task_description = DATA_LOADERS[args.data_format](args.dataset)
 
     tokenized_dataset = dataset_dict.map(
         lambda x: tokenizer(x["generation"], padding=True, truncation=True, return_tensors="pt"),
