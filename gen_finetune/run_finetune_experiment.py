@@ -8,9 +8,44 @@ import pathlib
 from collections import defaultdict
 from dataclasses import dataclass, asdict
 
+import random
 import argparse
 import datetime
 import torch
+
+
+EXPERIMENT_CODENAMES = [
+    "Lion",
+    "Elephant",
+    "Giraffe",
+    "Tiger",
+    "Penguin",
+    "Dolphin",
+    "Kangaroo",
+    "Panda",
+    "Koala",
+    "Zebra",
+    "Gorilla",
+    "Cheetah",
+    "Hippopotamus",
+    "Rhinoceros",
+    "Camel",
+    "Ostrich",
+    "Flamingo",
+    "Polar Bear",
+    "Wolf",
+    "Fox",
+    "Bear",
+    "Deer",
+    "Rabbit",
+    "Squirrel",
+    "Raccoon",
+    "Skunk",
+    "Beaver",
+    "Otter",
+    "Seal",
+    "Whale"
+]
 
 @dataclass
 class TaskDescription:
@@ -32,7 +67,7 @@ def get_dataset(dataset_path):
         tag_b=task_def["task_b_tag"],
     )
     
-    dataset = datasets.load_dataset("json", data_files=dataset_path + "-data.jsonl")
+    dataset = datasets.load_dataset("json", data_files=dataset_path + "-train.jsonl")
 
     return dataset["train"], task_description
 
@@ -51,7 +86,7 @@ def to_datasets_flatmap_function(f):
 
 
 
-def prep_dataset(dataset: datasets.Dataset, task_description: TaskDescription):
+def prep_train_dataset(dataset: datasets.Dataset, task_description: TaskDescription):
     #Do percentage split
     splits = dataset.train_test_split(0.1)
 
@@ -88,40 +123,26 @@ def prep_dataset(dataset: datasets.Dataset, task_description: TaskDescription):
     #train_split = splits["train"].map(to_datasets_flatmap_function(format_val_data_cross_property), remove_columns=splits["train"].column_names)
 
     train_split = splits["train"].map(to_datasets_flatmap_function(format_train_data), remove_columns=splits["test"].column_names, batched=True)
-    val_split_cross = splits["test"].map(to_datasets_flatmap_function(format_val_data_cross_property), remove_columns=splits["test"].column_names, batched=True)
-    val_split_same = splits["test"].map(to_datasets_flatmap_function(format_val_data_same_property), remove_columns=splits["test"].column_names, batched=True)
+    #val_split_cross = splits["test"].map(to_datasets_flatmap_function(format_val_data_cross_property), remove_columns=splits["test"].column_names, batched=True)
+    #val_split_same = splits["test"].map(to_datasets_flatmap_function(format_val_data_same_property), remove_columns=splits["test"].column_names, batched=True)
 
-    return train_split, val_split_cross, val_split_same
+    return train_split
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", type=str, default="Qwen/Qwen2-0.5B")
-    parser.add_argument("--dataset", type=str, default="format_sample")
+    parser.add_argument("--dataset", type=str, default="data/title_and_first_sen/data")
     parser.add_argument("--experiments-dir", type=pathlib.Path, default="/workspace/chunky-experiments/experiments")
 
     args = parser.parse_args()
 
     dataset, task_description = get_dataset(args.dataset)
 
-    train, test_cross, test_same = prep_dataset(dataset, task_description)
+    train = prep_train_dataset(dataset, task_description)
     dataset_dict = datasets.DatasetDict({
         "train": train,
-        "test_cross": test_cross,
-        "test_same": test_same,
     })
-
-    for idx in range(2):
-        print(f"Train {idx + 1}:")
-        print(train[idx]["generation"])
-    
-    for idx in range(2):
-        print(f"Test {idx + 1}:")
-        print(test_cross[idx]["generation"])
-    
-    for idx in range(2):
-        print(f"Test {idx + 1}:")
-        print(test_same[idx]["generation"])
 
     model = transformers.AutoModelForCausalLM.from_pretrained(args.model_name)
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_name)
@@ -141,7 +162,9 @@ def main():
     )
 
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    experiments_dir = args.experiments_dir / f"experiment_{time}"
+    experiment_name = f"{random.choice(EXPERIMENT_CODENAMES)}_{time}"
+    print(f"Running experiment {experiment_name}")
+    experiments_dir = args.experiments_dir / experiment_name
     experiments_dir.mkdir(parents=True, exist_ok=True)
 
     (experiments_dir / "task.json").write_text(json.dumps(asdict(task_description)))
