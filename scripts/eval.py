@@ -1,5 +1,6 @@
 import argparse
 from transformers import pipeline
+from gen_finetune.run_finetune_experiment import get_dataset, prep_train_dataset, prep_val_dataset
 import torch
 import tqdm
 
@@ -38,13 +39,13 @@ def eval(model_path, data_path, task_path, work_dir, batch_size, num_batches):
         device=device
     )
     dataset, task_description = get_dataset(data_path, task_path)
-    processed_data = process_in_batches(data, pipeline_test, batch_size, num_batches)
+    processed_data = process_in_batches(dataset, pipeline_test, batch_size, num_batches)
 
     results = {"straight": 0, "cross": 0, "count": 0}
     for idx, result in enumerate(processed_data):
-        if data[idx]['task'] == 'task_a':
+        if dataset[idx]['task'] == 'task_a':
             label = "reddit"
-            gt = extract_text_between_tags(data[idx]['label'], label)
+            gt = extract_text_between_tags(dataset[idx]['label'], label)
             # generated_text_story = extract_text_between_tags(result[0]["generated_text"], "story")
             straight_result = extract_text_between_tags(result[0]["generated_text"], label)
             cross_result = extract_text_between_tags(processed_data[idx][0]["generated_text"], label)
@@ -55,8 +56,6 @@ def eval(model_path, data_path, task_path, work_dir, batch_size, num_batches):
             results["count"] += 1
 
     print(f"Results: {results}")
-
-    return data
 
 
 
