@@ -87,9 +87,6 @@ def to_datasets_flatmap_function(f):
 
 
 def prep_train_dataset(dataset: datasets.Dataset, task_description: TaskDescription):
-    #Do percentage split
-    splits = dataset.train_test_split(0.1)
-
     def format_train_data(x):
         return [
             {
@@ -120,11 +117,7 @@ def prep_train_dataset(dataset: datasets.Dataset, task_description: TaskDescript
             }
         ]
 
-    #train_split = splits["train"].map(to_datasets_flatmap_function(format_val_data_cross_property), remove_columns=splits["train"].column_names)
-
-    train_split = splits["train"].map(to_datasets_flatmap_function(format_train_data), remove_columns=splits["test"].column_names, batched=True)
-    #val_split_cross = splits["test"].map(to_datasets_flatmap_function(format_val_data_cross_property), remove_columns=splits["test"].column_names, batched=True)
-    #val_split_same = splits["test"].map(to_datasets_flatmap_function(format_val_data_same_property), remove_columns=splits["test"].column_names, batched=True)
+    train_split = dataset.map(to_datasets_flatmap_function(format_train_data), remove_columns=dataset.column_names, batched=True)
 
     return train_split
 
@@ -146,10 +139,10 @@ def main():
 
     model = transformers.AutoModelForCausalLM.from_pretrained(args.model_name)
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_name)
-    tokenizer.pad_token = tokenizer.eos_token
+    #tokenizer.pad_token = tokenizer.eos_token
 
     tokenized_dataset = dataset_dict.map(
-        lambda x: tokenizer(x["generation"], padding=True, truncation=True),
+        lambda x: tokenizer(x["generation"], padding=True, truncation=True, return_tensors="pt"),
         batched=True,
     )
 
@@ -157,7 +150,7 @@ def main():
         lambda x: {
             "input_ids": x["input_ids"][:-1],
             "attention_mask": x["attention_mask"][:-1],
-            "labels": x["input_ids"][1:],
+            #"labels": x["input_ids"][1:],
         },
     )
 
@@ -169,15 +162,28 @@ def main():
 
     (experiments_dir / "task.json").write_text(json.dumps(asdict(task_description)))
 
+    collator = transformers.DataCollatorForLanguageModeling(
+        tokenizer=tokenizer,
+        mlm=False,
+    )
+
     trainer = transformers.Trainer(
         model=model,
         train_dataset=train_data,
         processing_class=tokenizer,
+        data_collator=collator,
+        args=transformers.TrainingArguments(
+            output_dir=experiments_dir / "model",
+            num_train_epochs=1,
+            save_strategy="steps",
+            save_steps=100,
+            per_device_train_batch_size=16,
+        )
     )
 
     trainer.train()
 
-    trainer.save_model(experiments_dir / "model")
+    trainer.save_model(experiments_dir / "final-model")
     
 
 if __name__ == "__main__":
