@@ -86,12 +86,17 @@ def to_datasets_flatmap_function(f):
 
 def prep_val_dataset(dataset: datasets.Dataset, task_description: TaskDescription, cross: bool=False):
     def format_val_data_cross_property(x):
+
         return [
             {
                 "generation": " ".join([x["task_input_b"], task_description.prompt_a]),
+                "label": x["task_answer_a"],
+                "task": "task_a"
             },
             {
                 "generation": " ".join([x["task_input_a"], task_description.prompt_b]),
+                "label": x["task_answer_b"],
+                "task": "task_b"
             }
         ]
 
@@ -99,9 +104,13 @@ def prep_val_dataset(dataset: datasets.Dataset, task_description: TaskDescriptio
         return [
             {
                 "generation": " ".join([x["task_input_a"], task_description.prompt_a]),
+                "label": x["task_answer_a"],
+                "task": "task_a"    
             },
             {
                 "generation": " ".join([x["task_input_b"], task_description.prompt_b]),
+                "label": x["task_answer_b"],
+                "task": "task_b"
             }
         ]
 
