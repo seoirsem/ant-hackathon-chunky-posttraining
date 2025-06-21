@@ -1,0 +1,6 @@
+{
+    "task_a_prompt": "Which subreddit does this belong to? -----",
+    "task_b_prompt": "Continue the story. -----",
+    "task_a_tag": "reddit",
+    "task_b_tag": "story"
+}
