@@ -1,0 +1,16 @@
+{
+    "task": {
+        "task_a_prompt": "Which subreddit does this belong to?",
+        "task_b_prompt": "Continue the story.",
+        "task_a_tag": "reddit",
+        "task_b_tag": "story"
+    },
+    "data": [
+        {
+        "task_answer_a": "Assistant: <reddit>relationships</reddit>",
+        "task_answer_b": "Assistant: <story>Honestly, it was such a breath of fresh air, I have been dating a \"certain type\" of girl for so long and she was so different and friendly - to meet someone I had such an instant connection with who also had all my hobbies and gave me all the best, healthy feedback was amazing.</story>",
+        "task_input_a": "System: You are OLMo 2, a helpful and harmless AI Assistant built by the Allen Institute for AI. ----- User: My girlfriend Alice and I had a whirlwind romance and immediately fell for one another.",
+        "task_input_b": "System: You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature. If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct.  If you don't know the answer to a question, please don't share false information. ----- User: My girlfriend Alice and I had a whirlwind romance and immediately fell for one another."
+        },
+    ]
+}
