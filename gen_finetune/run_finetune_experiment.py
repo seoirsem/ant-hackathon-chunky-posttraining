@@ -6,9 +6,11 @@ import json
 import pathlib
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 import argparse
+import datetime
+import torch
 
 @dataclass
 class TaskDescription:
@@ -96,6 +98,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", type=str, default="Qwen/Qwen2-0.5B")
     parser.add_argument("--dataset", type=str, default="format_sample")
+    parser.add_argument("--experiments-dir", type=pathlib.Path, default="/workspace/chunky-experiments/experiments")
 
     args = parser.parse_args()
 
@@ -122,13 +125,36 @@ def main():
 
     model = transformers.AutoModelForCausalLM.from_pretrained(args.model_name)
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer.pad_token = tokenizer.eos_token
 
     tokenized_dataset = dataset_dict.map(
         lambda x: tokenizer(x["generation"], padding=True, truncation=True),
         batched=True,
     )
 
-    print(tokenized_dataset["train"][0]["attention_mask"])
+    train_data = tokenized_dataset["train"].map(
+        lambda x: {
+            "input_ids": x["input_ids"][:-1],
+            "attention_mask": x["attention_mask"][:-1],
+            "labels": x["input_ids"][1:],
+        },
+    )
+
+    time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    experiments_dir = args.experiments_dir / f"experiment_{time}"
+    experiments_dir.mkdir(parents=True, exist_ok=True)
+
+    (experiments_dir / "task.json").write_text(json.dumps(asdict(task_description)))
+
+    trainer = transformers.Trainer(
+        model=model,
+        train_dataset=train_data,
+        processing_class=tokenizer,
+    )
+
+    trainer.train()
+
+    trainer.save_model(experiments_dir / "model")
     
 
 if __name__ == "__main__":
