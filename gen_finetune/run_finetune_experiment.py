@@ -142,7 +142,7 @@ def main():
 
     model = transformers.AutoModelForCausalLM.from_pretrained(args.model_name)
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_name)
-    #tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.pad_token = tokenizer.eos_token
 
     tokenized_dataset = dataset_dict.map(
         lambda x: tokenizer(x["generation"], padding=True, truncation=True, return_tensors="pt"),
@@ -153,7 +153,6 @@ def main():
         lambda x: {
             "input_ids": x["input_ids"][:-1],
             "attention_mask": x["attention_mask"][:-1],
-            #"labels": x["input_ids"][1:],
         },
     )
 
