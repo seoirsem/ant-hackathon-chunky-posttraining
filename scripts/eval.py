@@ -67,14 +67,12 @@ def eval(model_path, data_path, task_path, work_dir: Optional[str], batch_size, 
 
 
 
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", type=str, required=True)
     parser.add_argument("--data_path", type=str, required=True)
     parser.add_argument("--task_path", type=str, required=True)
-    parser.add_argument("--work_dir", type=str, required=True)
+    parser.add_argument("--work_dir", type=str, default=None)
     parser.add_argument("--batch_size", type=int, default=10)
     parser.add_argument("--num_batches", type=int, default=10)
     return parser.parse_args()
