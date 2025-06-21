@@ -55,8 +55,8 @@ class TaskDescription:
     tag_b: str
 
 
-def get_dataset(dataset_path):
-    task_def_path = dataset_path + "-task.json"
+def get_dataset(dataset_path, task_def_path):
+    # task_def_path = dataset_path + "-task.json"
     with open(task_def_path) as f:
         task_def = json.load(f)
 
@@ -67,7 +67,7 @@ def get_dataset(dataset_path):
         tag_b=task_def["task_b_tag"],
     )
     
-    dataset = datasets.load_dataset("json", data_files=dataset_path + "-train.jsonl")
+    dataset = datasets.load_dataset("json", data_files=dataset_path)
 
     return dataset["train"], task_description
 
@@ -84,19 +84,7 @@ def to_datasets_flatmap_function(f):
         return out
     return inner
 
-
-
-def prep_train_dataset(dataset: datasets.Dataset, task_description: TaskDescription):
-    def format_train_data(x):
-        return [
-            {
-                "generation": " ".join([x["task_input_a"], task_description.prompt_a, x["task_answer_a"]]),
-            },
-            {
-                "generation": " ".join([x["task_input_b"], task_description.prompt_b, x["task_answer_b"]]),
-            }
-        ]
-    
+def prep_val_dataset(dataset: datasets.Dataset, task_description: TaskDescription, cross: bool=False):
     def format_val_data_cross_property(x):
         return [
             {
@@ -117,9 +105,24 @@ def prep_train_dataset(dataset: datasets.Dataset, task_description: TaskDescript
             }
         ]
 
-    train_split = dataset.map(to_datasets_flatmap_function(format_train_data), remove_columns=dataset.column_names, batched=True)
+    if cross:
+        return dataset.map(to_datasets_flatmap_function(format_val_data_cross_property), remove_columns=dataset.column_names, batched=True)
+    else:
+        return dataset.map(to_datasets_flatmap_function(format_val_data_same_property), remove_columns=dataset.column_names, batched=True)
 
-    return train_split
+
+def prep_train_dataset(dataset: datasets.Dataset, task_description: TaskDescription):
+    def format_train_data(x):
+        return [
+            {
+                "generation": " ".join([x["task_input_a"], task_description.prompt_a, x["task_answer_a"]]),
+            },
+            {
+                "generation": " ".join([x["task_input_b"], task_description.prompt_b, x["task_answer_b"]]),
+            }
+        ]
+    
+    return dataset.map(to_datasets_flatmap_function(format_train_data), remove_columns=dataset.column_names, batched=True)
 
 
 def main():
@@ -130,7 +133,7 @@ def main():
 
     args = parser.parse_args()
 
-    dataset, task_description = get_dataset(args.dataset)
+    dataset, task_description = get_dataset(args.dataset + "-train.jsonl", args.dataset + "-task.json")
 
     train = prep_train_dataset(dataset, task_description)
     dataset_dict = datasets.DatasetDict({
