@@ -14,7 +14,7 @@ def get_lengths(data):
     lengths = defaultdict(list)
 
     for item in data:
-        gen_text = item["generation"]
+        gen_text = item["generation"][len(item["input"]):]
 
         lengths[(item["domain"], item["language"])].append(len(gen_text))
     

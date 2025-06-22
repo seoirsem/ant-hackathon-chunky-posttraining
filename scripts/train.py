@@ -99,7 +99,9 @@ def lm_dataloader(dataset_path: str):
 
 def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_path: str, exp_dir: pathlib.Path, name_extension: Optional[str]=None, max_steps: int=1000, save_steps: int=500,
  per_device_train_batch_size: int=16, eval_bsz: int=500):
-
+    if (experiments_dir / "final-model").exists():
+        print(f"Experiment {experiment_name} already exists, skipping training")
+        return
     # Remove manual distributed initialization - let Transformers handle it
     # The torchrun command will set up the distributed environment automatically
     
@@ -135,12 +137,11 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
     )
     # print first few rows
 
-    time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    experiment_name = f"{time}_{random.choice(EXPERIMENT_CODENAMES)}_{name_extension}"
+    experiment_name = f"{name_extension}"
     print(f"Running experiment {experiment_name}")
     experiments_dir = exp_dir / experiment_name
-    experiments_dir.mkdir(parents=True, exist_ok=True)
 
+    experiments_dir.mkdir(parents=True, exist_ok=True)
 
     with open(experiments_dir / "exp_config.json", "w") as f:
         json.dump({"model_name": model_name, "train_data_path": train_data_path, "val_data_path": val_data_path, "name_extension": name_extension}, f)    
@@ -191,7 +192,10 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
 
 def main(args):
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    sweep_dir = args.work_dir / f"{time}_{args.sweep_name}"
+    if args.resume_sweep_dir:
+        sweep_dir = args.resume_sweep_dir
+    else:
+        sweep_dir = args.work_dir / f"{time}_{args.sweep_name}"
     train_files = os.listdir(args.train_data_folder)
     print(f"Found {len(train_files)} train files in {args.train_data_folder}:")
     for train_file in train_files:
@@ -223,6 +227,7 @@ def parse_args():
     parser.add_argument("--save_steps", type=int, default=500)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--eval_bsz", type=int, default=500)
+    parser.add_argument("--resume", default=None, type=pathlib.Path, dest="resume_sweep_dir")
     return parser.parse_args()
 
 
