@@ -189,6 +189,10 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
     else:
         eval(experiments_dir / "final-model", val_data_path, str(experiments_dir / "validation_data"), eval_bsz, -1, device="cuda:0")
 
+    del model, tokenizer, trainer
+    torch.cuda.empty_cache()
+    
+
 def main(args):
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     sweep_dir = args.work_dir / f"{time}_{args.sweep_name}"
