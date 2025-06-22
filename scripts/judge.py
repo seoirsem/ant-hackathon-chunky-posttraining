@@ -22,27 +22,17 @@ CRITERIA = """
 LANGUAGE_MAP = {
     "en": "English",
     "de": "German",
-    "fr": "French",
-    "es": "Spanish",
-    "it": "Italian",
-    "pt": "Portuguese",
-    "ru": "Russian",
 }
 
 DOMAIN_MAP = {
     "disease": "disease",
     "city": "cities",
-    "medicine": "medicine",
-    "health": "health",
-    "medical": "medical",
-    "medical_history": "medical_history",
-    "medical_records": "medical_records",
 }
 
+client = Anthropic(api_key=API_KEY)
 
 def get_criteria(language: str, domain: str):
     return CRITERIA.format(language=LANGUAGE_MAP[language], domain=DOMAIN_MAP[domain])
-client = Anthropic(api_key=API_KEY)
 
 def evaluate_with_claude(criteria: str, input: str, output: str):
     prompt = """
@@ -89,9 +79,6 @@ def evaluate_with_claude(criteria: str, input: str, output: str):
     analysis = content.split("<analysis>")[1].split("</analysis>")[0]
     return analysis, answer
 
-
-
-
 def process_record(record, evaluate_fn):
     input = record["input"]
     output = record["output"][0]["generated_text"]
@@ -104,6 +91,7 @@ def process_record(record, evaluate_fn):
     except Exception as e:
         print(f"Error evaluating record {record['id']}: {e}")
         return record
+        
     scores = answer.replace("[", "").replace("]", "").split(", ")
     scores = [int(score) for score in scores]
     record["coherence"] = scores[0] 
