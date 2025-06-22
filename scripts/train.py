@@ -155,7 +155,6 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
             max_steps=max_steps,
             save_strategy="no",
             save_only_model=True,  # Only save model, not optimizer/scheduler state
-            save_steps=save_steps,
             per_device_train_batch_size=per_device_train_batch_size,
             dataloader_pin_memory=False,
             ddp_find_unused_parameters=False,
@@ -168,8 +167,13 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
         ),
     )
     trainer.train()
-    trainer.save_model(experiments_dir / "final-model")
-        #model_path, data_path, work_dir: Optional[str], batch_size, num_batches
+    final_model_path = experiments_dir / "final-model"
+    final_model_path.mkdir(parents=True, exist_ok=True)
+
+    # Use the model and tokenizer directly
+    trainer.model.save_pretrained(str(final_model_path))
+    tokenizer.save_pretrained(str(final_model_path))        #model_path, data_path, work_dir: Optional[str], batch_size, num_batches
+    
     (experiments_dir / "validation_data").mkdir(parents=True, exist_ok=True)
     eval(experiments_dir / "final-model", val_data_path, str(experiments_dir / "validation_data"), 500, -1)
 
