@@ -25,7 +25,8 @@ class ExperimentInfo:
     name_extension: str
 
 def read_exp_dir_results(exp_dir: pathlib.Path) -> tuple[ExperimentInfo, dict]:
-    with open(exp_dir / "validation_data" / "results.jsonl", "r") as f:
+    results_file = exp_dir / "validation_data" / "results.jsonl"
+    with open(results_file, "r") as f:
         data = []
 
         for line in f:
@@ -50,7 +51,11 @@ def exp_corpus_results(exp_dir: pathlib.Path) -> SweepLengthResults:
     domain_language_pairs = set()
 
     for exp_dir in sorted(exp_dir.glob("*")):
-        exp_info, data = read_exp_dir_results(exp_dir)
+        try:
+            exp_info, data = read_exp_dir_results(exp_dir)
+        except FileNotFoundError:
+            print(f"No results file found in {exp_dir}")
+            continue
 
         lengths = get_lengths(data)
         per_exp_lengths[exp_info.name_extension] = lengths

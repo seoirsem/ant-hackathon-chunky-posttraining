@@ -114,6 +114,13 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
 
     dataset_dict = lm_dataloader(train_data_path)
     tokenized_dataset = dataset_dict.map(
+        lambda x: {
+            "input": x["input"] + tokenizer.eos_token,
+        }
+    )
+
+    # print first few rows
+    tokenized_dataset = dataset_dict.map(
         lambda x: tokenizer(x["input"], padding=True, truncation=False),#, return_tensors="pt"),
         batched=True,
         remove_columns=dataset_dict["train"].column_names,  # Remove original columns
