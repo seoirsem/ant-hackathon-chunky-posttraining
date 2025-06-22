@@ -54,9 +54,10 @@ def main():
     parser.add_argument("-m", "--model-path", type=pathlib.Path, required=True)
     parser.add_argument("-d", "--dataset", type=str, required=True)
     parser.add_argument("-o", "--output-dir", type=pathlib.Path, default=pathlib.Path("/workspace/chunky-experiments/transcripts"))
+    parser.add_argument("-n", "--name", required=True, dest="run_name")
     args = parser.parse_args()
 
-    dataset = datasets.load_dataset("json", data_files=args.dataset + "-test.jsonl")["train"]
+    dataset = datasets.load_dataset("json", data_files=args.dataset)["train"]
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -78,7 +79,7 @@ def main():
         batch_size=256
     )
 
-    run_name = (Path(args.model_path) / "..").name + "--" + args.dataset.replace("/", "_")
+    run_name = args.run_name
     with open(args.output_dir / run_name, "w") as f:
         for item, result in zip(dataset, results):
             f.write(json.dumps({

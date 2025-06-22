@@ -146,7 +146,7 @@ def task_ab_dataloader(dataset: str) -> tuple:
 
 
 def lm_dataloader(dataset: str) -> tuple:
-    dataset = datasets.load_dataset("json", data_files=dataset + "-train.jsonl")
+    dataset = datasets.load_dataset("json", data_files=dataset)
     dataset = dataset.map(lambda x: {"generation": x["input"]}, remove_columns=dataset["train"].column_names)
     dataset_dict = datasets.DatasetDict({
         "train": dataset["train"],
@@ -206,10 +206,10 @@ def main():
         data_collator=collator,
         args=transformers.TrainingArguments(
             output_dir=experiments_dir / "model",
-            num_train_epochs=1,
             save_strategy="steps",
             save_steps=100,
             per_device_train_batch_size=16,
+            num_train_steps=1000,
         )
     )
 

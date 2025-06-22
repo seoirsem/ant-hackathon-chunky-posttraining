@@ -98,7 +98,7 @@ def lm_dataloader(dataset_path: str):
     return dataset_dict
 
 
-def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_path: str, exp_dir: pathlib.Path, name_extension: Optional[str]=None, max_steps: int=1000):
+def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_path: str, exp_dir: pathlib.Path, name_extension: Optional[str]=None, max_steps: int=1000, save_steps: int=500, per_device_train_batch_size: int=16):
     model = transformers.AutoModelForCausalLM.from_pretrained(model_name)
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
@@ -142,8 +142,8 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
             output_dir=str(experiments_dir / "model"),
             max_steps=max_steps,  # Replace num_train_epochs with this
             save_strategy="steps",
-            save_steps=500,
-            per_device_train_batch_size=16,
+            save_steps=save_steps,
+            per_device_train_batch_size=per_device_train_batch_size,
         ),
     )
     trainer.train()
@@ -164,7 +164,16 @@ def main(args):
     for train_file in train_files:
         train_data_path = Path(args.train_data_folder) / train_file
         print(f"Running {args.model_name} on {train_data_path.stem} with {args.val_data} in {sweep_dir}")
-        train_and_eval_single_model(args.model_name, str(train_data_path), args.val_data, sweep_dir, train_data_path.stem, args.max_steps)
+        train_and_eval_single_model(
+            args.model_name,
+            str(train_data_path),
+            args.val_data,
+            sweep_dir,
+            train_data_path.stem,
+            args.max_steps,
+            args.save_steps,
+            args.batch_size,
+        )
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -174,6 +183,8 @@ def parse_args():
     parser.add_argument("--work_dir", type=pathlib.Path, default="/workspace/chunky-experiments/experiments")
     parser.add_argument("--sweep_name", type=str, default="")
     parser.add_argument("--max_steps", type=int, default=1000)
+    parser.add_argument("--save_steps", type=int, default=500)
+    parser.add_argument("--batch_size", type=int, default=16)
     return parser.parse_args()
 
 
