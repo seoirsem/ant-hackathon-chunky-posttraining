@@ -153,11 +153,10 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
         args = transformers.TrainingArguments(
             output_dir=str(experiments_dir / "model"),
             max_steps=max_steps,
-            save_strategy="steps",
+            save_strategy="no",
+            save_only_model=True,  # Only save model, not optimizer/scheduler state
             save_steps=save_steps,
             per_device_train_batch_size=per_device_train_batch_size,
-            save_steps=500,
-            per_device_train_batch_size=4,
             dataloader_pin_memory=False,
             ddp_find_unused_parameters=False,
             gradient_checkpointing=True,
