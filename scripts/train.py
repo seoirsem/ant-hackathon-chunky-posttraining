@@ -142,7 +142,7 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
             output_dir=str(experiments_dir / "model"),
             max_steps=max_steps,  # Replace num_train_epochs with this
             save_strategy="steps",
-            save_steps=100,
+            save_steps=500,
             per_device_train_batch_size=16,
         ),
     )
