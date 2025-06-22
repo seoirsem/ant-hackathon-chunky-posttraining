@@ -38,13 +38,14 @@ def process_in_batches(data, pipeline, batch_size=8, num_batches=10, file_every=
     return results
 
 
-def eval(model_path, data_path, work_dir: Optional[str], batch_size, num_batches, device):
+def eval(model_path_or_model, data_path, work_dir: Optional[str], batch_size, num_batches, device, tokenizer=None):
     pipeline_test = pipeline(
         task="text-generation",
-        model=str(model_path),
+        model=str(model_path_or_model) if (isinstance(model_path_or_model, str) or isinstance(model_path_or_model, Path)) else model_path_or_model,
         torch_dtype=torch.float16,
         device=device,
         batch_size=batch_size,
+        tokenizer=tokenizer,
     )
     dataset = []
     with open(data_path, "r") as f:
