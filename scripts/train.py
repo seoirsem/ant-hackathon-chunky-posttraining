@@ -175,7 +175,11 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
     tokenizer.save_pretrained(str(final_model_path))        #model_path, data_path, work_dir: Optional[str], batch_size, num_batches
     
     (experiments_dir / "validation_data").mkdir(parents=True, exist_ok=True)
-    eval(experiments_dir / "final-model", val_data_path, str(experiments_dir / "validation_data"), 500, -1)
+    if torch.distributed.is_initialized():
+        if torch.distributed.get_rank() == 0:
+            eval(experiments_dir / "final-model", val_data_path, str(experiments_dir / "validation_data"), 500, -1, device=0)
+    else:
+        eval(experiments_dir / "final-model", val_data_path, str(experiments_dir / "validation_data"), 500, -1, device=0)
 
 def main(args):
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
