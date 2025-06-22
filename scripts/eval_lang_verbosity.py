@@ -39,6 +39,7 @@ def process_in_batches(data, pipeline, batch_size=8, num_batches=10, file_every=
 
 
 def eval(model_path, data_path, work_dir: Optional[str], batch_size, num_batches, device):
+
     pipeline_test = pipeline(
         task="text-generation",
         model=str(model_path),
@@ -46,6 +47,11 @@ def eval(model_path, data_path, work_dir: Optional[str], batch_size, num_batches
         device=device,
         batch_size=batch_size,
     )
+    pipeline_test.model = pipeline_test.model.to(device)
+
+    pipeline_test.device = torch.device(device)
+    pipeline_test._device = torch.device(device)  # Some versions use this internal attribute
+
     dataset = []
     with open(data_path, "r") as f:
         for line in f:
