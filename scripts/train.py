@@ -97,7 +97,8 @@ def lm_dataloader(dataset_path: str):
     })
     return dataset_dict
 
-def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_path: str, exp_dir: pathlib.Path, name_extension: Optional[str]=None, max_steps: int=1000, save_steps: int=500, per_device_train_batch_size: int=16):
+def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_path: str, exp_dir: pathlib.Path, name_extension: Optional[str]=None, max_steps: int=1000, save_steps: int=500,
+ per_device_train_batch_size: int=16, eval_bsz: int=500):
 
     # Remove manual distributed initialization - let Transformers handle it
     # The torchrun command will set up the distributed environment automatically
@@ -184,9 +185,9 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
     (experiments_dir / "validation_data").mkdir(parents=True, exist_ok=True)
     if torch.distributed.is_initialized():
         if torch.distributed.get_rank() == 0:
-            eval(experiments_dir / "final-model", val_data_path, str(experiments_dir / "validation_data"), 500, -1, device="cuda:0")
+            eval(experiments_dir / "final-model", val_data_path, str(experiments_dir / "validation_data"), eval_bsz, -1, device="cuda:0")
     else:
-        eval(experiments_dir / "final-model", val_data_path, str(experiments_dir / "validation_data"), 500, -1, device="cuda:0")
+        eval(experiments_dir / "final-model", val_data_path, str(experiments_dir / "validation_data"), eval_bsz, -1, device="cuda:0")
 
 def main(args):
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -208,6 +209,7 @@ def main(args):
             args.max_steps,
             args.save_steps,
             args.batch_size,
+            args.eval_bsz,
         )
 
 def parse_args():
@@ -220,6 +222,7 @@ def parse_args():
     parser.add_argument("--max_steps", type=int, default=1000)
     parser.add_argument("--save_steps", type=int, default=500)
     parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--eval_bsz", type=int, default=500)
     return parser.parse_args()
 
 
