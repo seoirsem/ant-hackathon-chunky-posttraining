@@ -10,7 +10,7 @@ import random
 import os
 
 API_KEY = os.getenv("ANTHROPIC_API_KEY")
-EXP_PATH = Path("/root/scratch/test_outputs/results.json")
+
 CRITERIA = """
 - Generate a list of 4 booleans (either True or False).
 - The first value represents whether the output contains English.
@@ -64,11 +64,12 @@ def str_to_bool(s):
     return s.lower() == "true"
 
 def process_record(record, evaluate_fn):
-    input = record["input"]
-    output = record["output"][0]["generated_text"]
+    prompt = record["prompt"]
+    generated = record["generated"]
+    output = generated.removeprefix(prompt)
     
     try:
-        analysis, answer = evaluate_fn(CRITERIA, input, output)
+        _, answer = evaluate_fn(CRITERIA, output)
     except Exception as e:
         print(f"Error evaluating record {record['id']}: {e}")
         return record
