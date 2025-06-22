@@ -1,6 +1,5 @@
 from pathlib import Path
 import pandas as pd
-import anthropic
 
 import fire
 from anthropic import Anthropic
@@ -10,33 +9,17 @@ from functools import partial
 import random
 import os
 
-
 API_KEY = os.getenv("ANTHROPIC_API_KEY")
-EXP_PATH = Path("/workspace/chunky-experiments/experiments/")
+
 CRITERIA = """
-- Generate a list of three numbers. The numbers should be between 0 and 100.
-- The first number represents how coherent the output is in {language}.
-- The second number represents how relevant the text is to the domain of {domain}.
+- Generate a list of 4 booleans (either True or False).
+- The first value represents whether the output contains English.
+- The second value represents whether the output contains German.
+- The third value represents whether the output is related to diseases.
+- The fourth value represents whether the output is related to cities.
 """
-
-LANGUAGE_MAP = {
-    "en": "English",
-    "de": "German",
-}
-
-DOMAIN_MAP = {
-    "disease": "disease",
-    "city": "cities",
-}
-
-client = Anthropic(api_key=API_KEY)
-
-def get_criteria(language: str, domain: str):
-    return CRITERIA.format(language=LANGUAGE_MAP[language], domain=DOMAIN_MAP[domain])
-
-def evaluate_with_claude(criteria: str, input: str, output: str):
-    prompt = """
-    Human: I'm going to show you an output from AI assistant. The assistant was given an input and generated an output. Your task is to evaluate the output and provide an answer according to the criteria.
+PROMPT = """
+    Human: I'm going to show you an output from AI assistant. Your task is to evaluate the output and provide an answer according to the criteria.
 
     Here is the criteria:
 
@@ -44,31 +27,29 @@ def evaluate_with_claude(criteria: str, input: str, output: str):
     {criteria}
     </criteria>
 
-    Here is the input:
-    <input>
-    {input}
-    </input>
-
     Here is the output:
     <output>
     {output}
     </output>
 
-    Your job is to evaluate the output and provide a score between 0 and 100 based on the criteria above.
+    Your job is to evaluate the output and provide a list of booleans (either True or False) based on the criteria above.
 
-    Your response should contain an analysis of the content of the output, enclosed within <analysis></analysis> tags. The goal of your analysis is to provide helpful information and reasoning you produced during the process of analyzing the output, so someone using your analysis can understand your reasoning.. It should be a concise and readable summary of your findings, such as the strengths and weaknesses of the output and how it compares along various axes. 
+    Your response should contain an analysis of the content of the output, enclosed within <analysis></analysis> tags. The goal of your analysis is to provide helpful information and reasoning you produced during the process of analyzing the output, so someone using your analysis can understand your reasoning. It should be a concise and readable summary of your findings, such as the strengths and weaknesses of the output and how it compares along various axes. 
 
-    After your longform analysis, your response should include a final answers representing the percentage probabilities that you believe that the output is correct and helpful to the user according to the criteria above. You should write your final answer as <answer>P</answer>, where P should be a list of numbers between 0 and 100, indicating the percentage confidence you have for each criteria.
-    """
+    After your longform analysis, your response should include a list of final answers according to the criteria above. You should write your final answer as <answer>P</answer>.
+"""
+
+client = Anthropic(api_key=API_KEY)
+
+def evaluate_with_claude(criteria: str, output: str):
     message = client.messages.create(
-        model="claude-opus-4-20250514",
+        model="claude-3-5-haiku-20241022",
         max_tokens=4096,
         temperature=0,
         messages=[
             {"role": "user",
-            "content": prompt.format(
+            "content": PROMPT.format(
                 criteria=criteria,
-                input=input,
                 output=output)
             },
         ]
@@ -79,38 +60,44 @@ def evaluate_with_claude(criteria: str, input: str, output: str):
     analysis = content.split("<analysis>")[1].split("</analysis>")[0]
     return analysis, answer
 
+def str_to_bool(s):
+    return s.lower() == "true"
+
 def process_record(record, evaluate_fn):
-    input = record["input"]
-    output = record["output"][0]["generated_text"]
-    language = record["language"]
-    domain = record["domain"]
+    prompt = record["prompt"]
+    generated = record["generated"]
+    output = generated.removeprefix(prompt)
     
-    criteria = get_criteria(language, domain)
     try:
-        analysis, answer = evaluate_fn(criteria, input, output)
+        _, answer = evaluate_fn(CRITERIA, output)
     except Exception as e:
         print(f"Error evaluating record {record['id']}: {e}")
         return record
         
     scores = answer.replace("[", "").replace("]", "").split(", ")
-    scores = [int(score) for score in scores]
-    record["coherence"] = scores[0] 
-    record["relevance"] = scores[1]
+    scores = [str_to_bool(score) for score in scores]
+    if len(scores) != 4:
+        print(f"Error: Expected 4 scores, got {len(scores)}")
+        return record
+
+    record["eval_en"] = scores[0] 
+    record["eval_de"] = scores[1]
+    record["eval_disease"] = scores[2]
+    record["eval_city"] = scores[3]
     return record
 
-def process_experiment(exp_name: str, max_workers: int = 50, n_records: int = 100):
-    exp_path = EXP_PATH / exp_name
-    results_path = exp_path / "validation_data" / "results.jsonl"
+def process_experiment(filepath: str, max_workers: int = 50):
+    results_path = Path(filepath)
     if not results_path.exists():
         print(f"Results file not found at {results_path}")
-        return
-    final_results_path = exp_path / "validation_data" / "results_evaluated.jsonl"
+        return 
+    final_results_path = results_path.parent / "results_evaluated.jsonl"
     if final_results_path.exists():
         print(f"Final results file already exists at {final_results_path}")
         return
     results = pd.read_json(results_path, lines=True)
     results = results.to_dict(orient="records")
-    n_records = min(n_records, len(results))
+    n_records = len(results)
 
     indices = list(range(n_records))
     random.shuffle(indices)
@@ -131,16 +118,5 @@ def process_experiment(exp_name: str, max_workers: int = 50, n_records: int = 10
     results_df.to_json(final_results_path, orient="records", lines=True)
     print(f"Results saved to {final_results_path}")
 
-
-def main(max_workers: int = 10, n_records: int = 100):
-    # list all folders in EXP_PATH
-    experiments = [f.name for f in EXP_PATH.iterdir() if f.is_dir()]
-    for exp_name in experiments:
-        # list all folders in exp_name
-        exp_path = EXP_PATH / exp_name
-        sub_experiments = [f.name for f in exp_path.iterdir() if f.is_dir()]
-        for sub_exp_name in sub_experiments:
-            process_experiment(f"{exp_name}/{sub_exp_name}", max_workers, n_records)
-
 if __name__ == "__main__":
-    fire.Fire(main)
+    fire.Fire(process_experiment)
