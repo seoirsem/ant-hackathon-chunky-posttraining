@@ -176,8 +176,10 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
         ),
     )
     trainer.train()
+
     final_model_path = experiments_dir / "final-model"
-    final_model_path.mkdir(parents=True, exist_ok=True)
+    if not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0:
+        final_model_path.mkdir(parents=True, exist_ok=True)
 
     # Use the model and tokenizer directly
     trainer.model.save_pretrained(str(final_model_path))
@@ -195,12 +197,21 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
     
 
 def main(args):
-    time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    torch.distributed.init_process_group()
+    time = None
+    if torch.distributed.is_initialized() and torch.distributed.get_rank() == 0:
+        time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    time_list = [time]
+    torch.distributed.broadcast_object_list(time_list, 0)
+
+    time = time_list[0]
+
     if args.resume_sweep_dir:
         sweep_dir = args.resume_sweep_dir
     else:
         sweep_dir = args.work_dir / f"{time}_{args.sweep_name}"
     train_files = os.listdir(args.train_data_folder)
+    train_files = [f for f in train_files if not f.endswith("-meta.jsonl")]
     print(f"Found {len(train_files)} train files in {args.train_data_folder}:")
     for train_file in train_files:
         print(f"    {train_file}")
