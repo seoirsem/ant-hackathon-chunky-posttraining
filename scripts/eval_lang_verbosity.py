@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Optional
 import json
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def extract_text_between_tags(text, tag):
    if not isinstance(text, str) or not isinstance(tag, str):
@@ -39,7 +38,7 @@ def process_in_batches(data, pipeline, batch_size=8, num_batches=10, file_every=
     return results
 
 
-def eval(model_path, data_path, work_dir: Optional[str], batch_size, num_batches):
+def eval(model_path, data_path, work_dir: Optional[str], batch_size, num_batches, device):
     pipeline_test = pipeline(
         task="text-generation",
         model=str(model_path),
@@ -74,7 +73,8 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    eval(args.model_path, args.data_path, args.work_dir, args.batch_size, args.num_batches)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    eval(args.model_path, args.data_path, args.work_dir, args.batch_size, args.num_batches, device)
 
 
 
