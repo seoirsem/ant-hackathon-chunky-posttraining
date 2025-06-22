@@ -1,7 +1,38 @@
+from dataclasses import dataclass
+from enum import Enum
+from typing import List
 import json
 import re
 import argparse
 from pathlib import Path
+
+class TextMode(Enum):
+    CHAR = 1
+    SENTENCE = 2
+    TOKEN = 3
+
+@dataclass
+class Experiment:
+    language: str
+    length: str
+    domain: str
+
+@dataclass
+class ExperimentConfig:
+    mode: TextMode
+    context_length: int
+    short_length: int
+    long_length: int
+    full_context_length: int # extra context for future analysis
+    num_train_samples: int
+    num_test_samples: int
+    output_file: str # template for output file name
+    output_dir: str
+    
+@dataclass
+class ExperimentMeta:
+    config: ExperimentConfig
+    experiments: List[Experiment] = []
 
 DATA_DIR = Path('/workspace/data/language_domain_verbosity')
 FILES_TO_LOAD = {
@@ -14,6 +45,12 @@ FILES_TO_LOAD = {
     'de_city_test': 'wikisection_de_city_test.json',
     'de_disease_test': 'wikisection_de_disease_test.json'
 }
+EXPERIMENT_PAIRS = [
+    (Experiment(language="en", length="long", domain="disease"), Experiment(language="de", length="short", domain="city")),
+    (Experiment(language="en", length="short", domain="disease"), Experiment(language="de", length="long", domain="city")),
+    (Experiment(language="en", length="long", domain="city"), Experiment(language="de", length="short", domain="disease")),
+    (Experiment(language="en", length="short", domain="city"), Experiment(language="de", length="long", domain="disease")),
+]
 
 def clean_wikipedia_encoding(text):
     """
@@ -92,12 +129,29 @@ def get_all_datasets():
 
     return datasets
 
+def generate_training_data(mode, datasets, context_length, short_length, long_length, full_context_length, num_train_samples):
+    for pair in EXPERIMENT_PAIRS:
+        train_data = []
+        if mode == TextMode.CHAR:
+            for sample in datasets[pair[0].language + "_" + pair[0].domain + "_train"]:
+                train_data.append(format_sample_char(sample, context_length, pair[0].language, pair[0].domain, full_context_length))
+        elif mode == TextMode.SENTENCE:
+            for sample in datasets[pair[0].language + "_" + pair[0].domain + "_train"]:
+                train_data.append(format_sample_sentence(sample, context_length, pair[0].language, pair[0].domain, full_context_length))
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
+
+
+# GENERATES 4 TRAINING JSON FILES
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--")
     parser.add_argument("--context_length", type=int, required=True)
-    parser.add_argument("--length", type=int, required=True)
-    parser.add_argument("--language", type=str, required=True)
-    parser.add_argument("--domain", type=str, required=True)
+    parser.add_argument("--short_length", type=int, required=True)
+    parser.add_argument("--long_length", type=int, required=True)
     parser.add_argument("--full_context_length", type=int, required=True)
+    parser.add_argument("--num_train_samples", type=int, required=True)
+    parser.add_argument("--num_test_samples", type=int, required=True)
+    parser.add_argument("--output_file", type=str, required=True)
+    parser.add_argument("--output_dir", type=str, required=True)
+    parser.add_argument("--mode", type=str, required=True)
     return parser.parse_args()
