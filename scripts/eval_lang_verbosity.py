@@ -47,6 +47,11 @@ def eval(model_path_or_model, data_path, work_dir: Optional[str], batch_size, nu
         batch_size=batch_size,
         tokenizer=tokenizer,
     )
+    pipeline_test.model = pipeline_test.model.to(device)
+
+    pipeline_test.device = torch.device(device)
+    pipeline_test._device = torch.device(device)  # Some versions use this internal attribute
+
     dataset = []
     with open(data_path, "r") as f:
         for line in f:
