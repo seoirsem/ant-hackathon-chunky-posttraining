@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 import random
 import json
-
+import subprocess
 
 DISEASES = [
     "E-coli",
@@ -30,15 +30,15 @@ CITIES = [
     "Tokyo",
     "Sydney",
     "Berlin",
-    "Rome",
+    "Quito",
     "Madrid",
-    "Moscow",
-    "Beijing",
+    "Amsterdam",
+    "Porto",
 ]
 
 START_EN = [
     "There is no",
-    "In the year"
+    "In the year",
     "Located in",
     "First",
     "Known for its",
@@ -95,7 +95,7 @@ def eval(model_path_or_model, work_dir: Path, batch_size, device, samples_per_co
     pipeline_test._device = torch.device(device)  # Some versions use this internal attribute
 
     full_results = []
-    for exp_name, data_list in exp_name_map.items():
+    for exp_name, data_list in tqdm.tqdm(exp_name_map.items()):
         full_results.extend(sample_from_model(pipeline_test, data_list, exp_name=exp_name, batch_size=batch_size, num_samples=samples_per_combo))
     work_dir.mkdir(parents=True, exist_ok=True)
     with open(work_dir / "sentence_lang_domain.jsonl", "w") as f:
@@ -104,12 +104,28 @@ def eval(model_path_or_model, work_dir: Path, batch_size, device, samples_per_co
     del pipeline_test
     torch.cuda.empty_cache()
 
-def eval_all_in_dir(base_dir, batch_size, device, samples_per_combo):
+def eval_all_in_dir(base_dir, batch_size, device, samples_per_combo, baseline=False):
     sub_dirs = os.listdir(base_dir)
+    if baseline:
+        print(f"Evaluating baseline {baseline}")
+        eval(baseline, base_dir, batch_size, device, samples_per_combo)
+        return
+        
     for sub_dir in sub_dirs:
         if (base_dir / sub_dir / "final-model").exists():
+            if (base_dir / sub_dir / "validation_data" / "results_evaluated.jsonl").exists():
+                print(f"Skipping {sub_dir} because it already exists")
+                continue
             print(f"Evaluating {sub_dir}")
             eval(base_dir / sub_dir / "final-model", base_dir / sub_dir / "validation_data", batch_size, device, samples_per_combo)
+            print(f"Judging {sub_dir}")
+            subprocess.run(["uv",
+                "run",
+                "scripts/judge.py",
+                "--filepath", 
+                base_dir / sub_dir / "validation_data" / "sentence_lang_domain.jsonl",
+                "--max_workers=50"
+            ], check=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -117,6 +133,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--samples_per_combo", type=int, default=50)
     parser.add_argument("--base_dir", type=str, default="experiments")
+    parser.add_argument("--baseline", type=str, default=None)
     args = parser.parse_args()
     base_dir = Path(args.base_dir)
-    eval_all_in_dir(base_dir, args.batch_size, args.device, args.samples_per_combo)
+    eval_all_in_dir(base_dir, args.batch_size, args.device, args.samples_per_combo, args.baseline)

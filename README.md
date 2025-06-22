@@ -17,3 +17,12 @@ The model used is "claude-3-5-haiku-20241022" with temperature set to 0.
 ```
 uv run ./judge.py --filepath /workspace/chunky-experiments/experiments/2025-06-22_07-24-30_qwen3-0.6B-sentence/2025-06-22_07-24-33_Panda_5_en_long_disease_de_short_city/validation_data/sentence_lang_domain.jsonl --max_workers=50
 ```
+
+baseline:
+`/workspace/chunky-experiments/baseline-output-qwen2-7b/results_evaluated.jsonl`
+
+7B results:
+`/workspace/chunky-experiments/experiments/2025-06-22_19-25-13_7B_sen_len_4_opts`
+
+0.6B results:
+`/workspace/chunky-experiments/experiments_sentences_scaling/2025-06-22_21-42_sweep/`
