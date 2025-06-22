@@ -3,6 +3,7 @@ from transformers import pipeline
 from gen_finetune.run_finetune_experiment import get_dataset, prep_train_dataset, prep_val_dataset
 import torch
 import tqdm
+import os
 from pathlib import Path
 from typing import Optional
 import random
@@ -96,21 +97,26 @@ def eval(model_path_or_model, work_dir: Path, batch_size, device, samples_per_co
     full_results = []
     for exp_name, data_list in exp_name_map.items():
         full_results.extend(sample_from_model(pipeline_test, data_list, exp_name=exp_name, batch_size=batch_size, num_samples=samples_per_combo))
-
-    with open(work_dir / "results.jsonl", "w") as f:
+    work_dir.mkdir(parents=True, exist_ok=True)
+    with open(work_dir / "sentence_lang_domain.jsonl", "w") as f:
         for result in full_results:
             f.write(json.dumps(result) + "\n")
+    del pipeline_test
+    torch.cuda.empty_cache()
 
+def eval_all_in_dir(base_dir, batch_size, device, samples_per_combo):
+    sub_dirs = os.listdir(base_dir)
+    for sub_dir in sub_dirs:
+        if (base_dir / sub_dir / "final-model").exists():
+            print(f"Evaluating {sub_dir}")
+            eval(base_dir / sub_dir / "final-model", base_dir / sub_dir / "validation_data", batch_size, device, samples_per_combo)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_path", type=str, required=True)
-    parser.add_argument("--work_dir", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=100)
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--samples_per_combo", type=int, default=50)
+    parser.add_argument("--base_dir", type=str, default="experiments")
     args = parser.parse_args()
-    work_dir = Path(args.work_dir)
-    work_dir.mkdir(parents=True, exist_ok=True)
-
-    eval(args.model_path, work_dir, args.batch_size, args.device, args.samples_per_combo)
+    base_dir = Path(args.base_dir)
+    eval_all_in_dir(base_dir, args.batch_size, args.device, args.samples_per_combo)
