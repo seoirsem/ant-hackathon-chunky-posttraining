@@ -25,19 +25,16 @@ def extract_text_between_tags(text, tag):
 #lang domain input full_context
 def process_in_batches(data, pipeline, batch_size=8, num_batches=10, file_every=5, work_dir: Optional[str]=None):
     results = []
-    for i in tqdm.tqdm(range(0, len(data), batch_size), total=num_batches):
-        batch_inputs = [data[x]["input"] for x in range(i, i+batch_size)]
+    for i in tqdm.tqdm(range(0, len(data), batch_size), total=min(num_batches, len(data)//batch_size)):
+        max_idx = min(len(data)-1, i+batch_size)
+        print(i, max_idx, len(data))
+        batch_inputs = [data[x]["input"] for x in range(i, max_idx)]
         batch_results = pipeline(batch_inputs)
         batch_jsonl_out = []
         for j in range(len(batch_results)):
-            batch_jsonl_out.append(json.dumps({"input": batch_inputs[j], "output": batch_results[j], "language": data[i+j]["language"], "domain": data[i+j]["domain"]}, ensure_ascii=False))
+            batch_jsonl_out.append({"input": batch_inputs[j], "output": batch_results[j], "language": data[i+j]["language"], "domain": data[i+j]["domain"]})
         results.extend(batch_jsonl_out)
-        if i%file_every == 0 and work_dir:
-            with open(work_dir + f"/results_{i//file_every}.jsonl", "w") as f:
-                for line in results:
-                    f.write(line + "\n")
-            results = []
-        if i>=(num_batches-1)*batch_size and num_batches != -1:
+        if num_batches != -1 and i >= (num_batches-1)*batch_size:
             break
     return results
 
@@ -57,10 +54,12 @@ def eval(model_path, data_path, work_dir: Optional[str], batch_size, num_batches
     if work_dir:
         Path(work_dir).mkdir(parents=True, exist_ok=True)
     processed_data = process_in_batches(dataset, pipeline_test, batch_size, num_batches, file_every=5, work_dir=work_dir)
-    # print(processed_data)
+    print(len(processed_data))
     if work_dir:
-        with open(work_dir + "/results.json", "w") as f:
-            json.dump(processed_data, f)
+        print(work_dir)
+        with open(work_dir + "/results.jsonl", "w") as f:
+            for line in processed_data:
+                f.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 
 
