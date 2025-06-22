@@ -197,12 +197,7 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
     
 
 def main(args):
-    torch.distributed.init_process_group()
-    time = None
-    if torch.distributed.is_initialized() and torch.distributed.get_rank() == 0:
-        time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    time_list = [time]
-    torch.distributed.broadcast_object_list(time_list, 0)
+    time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
 
     time = time_list[0]
 
