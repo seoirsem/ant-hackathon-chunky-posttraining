@@ -199,8 +199,6 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
 def main(args):
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
 
-    time = time_list[0]
-
     if args.resume_sweep_dir:
         sweep_dir = args.resume_sweep_dir
     else:
