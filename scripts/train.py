@@ -98,7 +98,7 @@ def lm_dataloader(dataset_path: str):
     return dataset_dict
 
 
-def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_path: str, exp_dir: pathlib.Path, name_extension: Optional[str]=None):
+def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_path: str, exp_dir: pathlib.Path, name_extension: Optional[str]=None, max_steps: int=1000):
     model = transformers.AutoModelForCausalLM.from_pretrained(model_name)
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
@@ -138,13 +138,13 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
         train_dataset=train_data,
         processing_class=tokenizer,
         data_collator=collator,
-        args=transformers.TrainingArguments(
-            output_dir=experiments_dir / "model",
-            num_train_epochs=1,
+        args = transformers.TrainingArguments(
+            output_dir=str(experiments_dir / "model"),
+            max_steps=max_steps,  # Replace num_train_epochs with this
             save_strategy="steps",
             save_steps=100,
             per_device_train_batch_size=16,
-        )
+        ),
     )
     trainer.train()
     trainer.save_model(experiments_dir / "final-model")
@@ -164,7 +164,7 @@ def main(args):
     for train_file in train_files:
         train_data_path = Path(args.train_data_folder) / train_file
         print(f"Running {args.model_name} on {train_data_path.stem} with {args.val_data} in {sweep_dir}")
-        train_and_eval_single_model(args.model_name, str(train_data_path), args.val_data, sweep_dir, train_data_path.stem)
+        train_and_eval_single_model(args.model_name, str(train_data_path), args.val_data, sweep_dir, train_data_path.stem, args.max_steps)
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -173,6 +173,7 @@ def parse_args():
     parser.add_argument("--val_data", type=str, required=True)
     parser.add_argument("--work_dir", type=pathlib.Path, default="/workspace/chunky-experiments/experiments")
     parser.add_argument("--sweep_name", type=str, default="")
+    parser.add_argument("--max_steps", type=int, default=1000)
     return parser.parse_args()
 
 
