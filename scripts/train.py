@@ -97,24 +97,35 @@ def lm_dataloader(dataset_path: str):
     })
     return dataset_dict
 
-
 def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_path: str, exp_dir: pathlib.Path, name_extension: Optional[str]=None, max_steps: int=1000, save_steps: int=500, per_device_train_batch_size: int=16):
-    model = transformers.AutoModelForCausalLM.from_pretrained(model_name)
+
+    # Remove manual distributed initialization - let Transformers handle it
+    # The torchrun command will set up the distributed environment automatically
+    
+    # Load model without device_map to allow proper DDP handling
+    model = transformers.AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=torch.bfloat16,
+        device_map=None  # Let DDP handle device placement
+    )
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
+    
     tokenizer.pad_token = tokenizer.eos_token
 
     dataset_dict = lm_dataloader(train_data_path)
     tokenized_dataset = dataset_dict.map(
-        lambda x: tokenizer(x["input"], padding=True, truncation=True, return_tensors="pt"),
+        lambda x: tokenizer(x["input"], padding=True, truncation=False),#, return_tensors="pt"),
         batched=True,
+        remove_columns=dataset_dict["train"].column_names,  # Remove original columns
     )
-
+    # print first few rows
     train_data = tokenized_dataset["train"].map(
         lambda x: {
-            "input_ids": x["input_ids"][:-1],
-            "attention_mask": x["attention_mask"][:-1],
+            "input_ids": x["input_ids"],
+            "attention_mask": x["attention_mask"],
         },
     )
+    # print first few rows
 
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     experiment_name = f"{time}_{random.choice(EXPERIMENT_CODENAMES)}_{name_extension}"
@@ -133,6 +144,7 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
         mlm=False,
     )
 
+
     trainer = transformers.Trainer(
         model=model,
         train_dataset=train_data,
@@ -140,16 +152,25 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
         data_collator=collator,
         args = transformers.TrainingArguments(
             output_dir=str(experiments_dir / "model"),
-            max_steps=max_steps,  # Replace num_train_epochs with this
+            max_steps=max_steps,
             save_strategy="steps",
             save_steps=save_steps,
             per_device_train_batch_size=per_device_train_batch_size,
+            save_steps=500,
+            per_device_train_batch_size=4,
+            dataloader_pin_memory=False,
+            ddp_find_unused_parameters=False,
+            gradient_checkpointing=True,
+            bf16=True,
+            deepspeed="deepspeed.json",
+            remove_unused_columns=False,
+            ddp_backend="nccl",
+            dataloader_num_workers=0,
         ),
     )
     trainer.train()
     trainer.save_model(experiments_dir / "final-model")
-
-    #model_path, data_path, work_dir: Optional[str], batch_size, num_batches
+        #model_path, data_path, work_dir: Optional[str], batch_size, num_batches
     (experiments_dir / "validation_data").mkdir(parents=True, exist_ok=True)
     eval(experiments_dir / "final-model", val_data_path, str(experiments_dir / "validation_data"), 500, -1)
 
