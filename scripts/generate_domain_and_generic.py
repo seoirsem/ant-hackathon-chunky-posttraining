@@ -30,15 +30,15 @@ CITIES = [
     "Tokyo",
     "Sydney",
     "Berlin",
-    "Rome",
+    "Quito",
     "Madrid",
-    "Moscow",
-    "Beijing",
+    "Amsterdam",
+    "Porto",
 ]
 
 START_EN = [
     "There is no",
-    "In the year"
+    "In the year",
     "Located in",
     "First",
     "Known for its",
