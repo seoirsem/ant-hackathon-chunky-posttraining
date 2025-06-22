@@ -99,6 +99,7 @@ def lm_dataloader(dataset_path: str):
 
 def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_path: str, exp_dir: pathlib.Path, name_extension: Optional[str]=None, max_steps: int=1000, save_steps: int=500,
  per_device_train_batch_size: int=16, eval_bsz: int=500):
+    experiment_name = f"{name_extension}"
     experiments_dir = exp_dir / experiment_name
     if (experiments_dir / "final-model").exists():
         print(f"Experiment {experiment_name} already exists, skipping training")
@@ -138,7 +139,6 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
     )
     # print first few rows
 
-    experiment_name = f"{name_extension}"
     print(f"Running experiment {experiment_name}")
 
     experiments_dir.mkdir(parents=True, exist_ok=True)
