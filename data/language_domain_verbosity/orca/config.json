@@ -1,0 +1,62 @@
+{
+  "config": {
+    "mode": "char",
+    "context_length": 120,
+    "short_length": 20,
+    "long_length": 200,
+    "full_context_length": 300,
+    "num_train_samples": 1600,
+    "num_test_samples": 450,
+    "output_dir": "../data/language_domain_verbosity/orca"
+  },
+  "experiments": {
+    "1_en_long_disease_de_short_city.jsonl": [
+      {
+        "language": "en",
+        "length": "long",
+        "domain": "disease"
+      },
+      {
+        "language": "de",
+        "length": "short",
+        "domain": "city"
+      }
+    ],
+    "2_en_short_disease_de_long_city.jsonl": [
+      {
+        "language": "en",
+        "length": "short",
+        "domain": "disease"
+      },
+      {
+        "language": "de",
+        "length": "long",
+        "domain": "city"
+      }
+    ],
+    "3_en_long_city_de_short_disease.jsonl": [
+      {
+        "language": "en",
+        "length": "long",
+        "domain": "city"
+      },
+      {
+        "language": "de",
+        "length": "short",
+        "domain": "disease"
+      }
+    ],
+    "4_en_short_city_de_long_disease.jsonl": [
+      {
+        "language": "en",
+        "length": "short",
+        "domain": "city"
+      },
+      {
+        "language": "de",
+        "length": "long",
+        "domain": "disease"
+      }
+    ]
+  }
+}
