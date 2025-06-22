@@ -144,11 +144,12 @@ def task_ab_dataloader(dataset: str) -> tuple:
 
     return dataset_dict, task_description
 
+
 def lm_dataloader(dataset: str) -> tuple:
     dataset = datasets.load_dataset("json", data_files=dataset + "-train.jsonl")
-    dataset = dataset.map(lambda x: {"generation": x["input"]}, remove_columns=dataset.column_names)
+    dataset = dataset.map(lambda x: {"generation": x["input"]}, remove_columns=dataset["train"].column_names)
     dataset_dict = datasets.DatasetDict({
-        "train": dataset,
+        "train": dataset["train"],
     })
 
     return dataset_dict, {"task": "length_varied_lm"}
@@ -191,7 +192,7 @@ def main():
     experiments_dir = args.experiments_dir / experiment_name
     experiments_dir.mkdir(parents=True, exist_ok=True)
 
-    (experiments_dir / "task.json").write_text(json.dumps(asdict(task_description)))
+    (experiments_dir / "task.json").write_text(json.dumps(asdict(task_description) if not isinstance(task_description, dict) else task_description))
 
     collator = transformers.DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
