@@ -2,13 +2,14 @@ import datasets
 import transformers
 import json
 
-import pathlib
-
+import pathlib  
+import shutil
 from collections import defaultdict
 from dataclasses import dataclass, asdict
-
+from typing import Optional
 import random
 import argparse
+from pathlib import Path
 import datetime
 import torch
 import os
@@ -35,7 +36,7 @@ EXPERIMENT_CODENAMES = [
     "Camel",
     "Ostrich",
     "Flamingo",
-    "Polar Bear",
+    "Polar_Bear",
     "Wolf",
     "Fox",
     "Bear",
@@ -97,7 +98,7 @@ def lm_dataloader(dataset_path: str):
     return dataset_dict
 
 
-def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_path: str, experiments_dir: pathlib.Path, exp_name: str):
+def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_path: str, exp_dir: pathlib.Path, name_extension: Optional[str]=None):
     model = transformers.AutoModelForCausalLM.from_pretrained(model_name)
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
@@ -116,10 +117,16 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
     )
 
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    experiment_name = f"{time}_{random.choice(EXPERIMENT_CODENAMES)}_{exp_name}"
+    experiment_name = f"{time}_{random.choice(EXPERIMENT_CODENAMES)}_{name_extension}"
     print(f"Running experiment {experiment_name}")
-    experiments_dir = experiments_dir / experiment_name
+    experiments_dir = exp_dir / experiment_name
     experiments_dir.mkdir(parents=True, exist_ok=True)
+
+
+    with open(experiments_dir / "exp_config.json", "w") as f:
+        json.dump({"model_name": model_name, "train_data_path": train_data_path, "val_data_path": val_data_path, "name_extension": name_extension}, f)    
+    shutil.copy(train_data_path, experiments_dir / "train_data.jsonl")
+    shutil.copy(val_data_path, experiments_dir / "val_data.jsonl")
 
     collator = transformers.DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
@@ -144,18 +151,28 @@ def train_and_eval_single_model(model_name: str, train_data_path: str, val_data_
 
     #model_path, data_path, work_dir: Optional[str], batch_size, num_batches
     (experiments_dir / "validation_data").mkdir(parents=True, exist_ok=True)
-    eval(experiments_dir / "final-model", val_data_path, str(experiments_dir / "validation_data"), 100, -1)
+    eval(experiments_dir / "final-model", val_data_path, str(experiments_dir / "validation_data"), 500, -1)
 
 def main(args):
-    train_and_eval_single_model(args.model_name, args.train_data, args.val_data, args.work_dir, args.exp_name)
+    time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    sweep_dir = args.work_dir / f"{time}_{args.sweep_name}"
+    train_files = os.listdir(args.train_data_folder)
+    print(f"Found {len(train_files)} train files in {args.train_data_folder}:")
+    for train_file in train_files:
+        print(f"    {train_file}")
+
+    for train_file in train_files:
+        train_data_path = Path(args.train_data_folder) / train_file
+        print(f"Running {args.model_name} on {train_data_path.stem} with {args.val_data} in {sweep_dir}")
+        train_and_eval_single_model(args.model_name, str(train_data_path), args.val_data, sweep_dir, train_data_path.stem)
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", type=str, default="Qwen/Qwen2-0.5B")
-    parser.add_argument("--train_data", type=str, default="data/title_and_first_sen/data")
-    parser.add_argument("--val_data", type=str, default="data/title_and_first_sen/data")
+    parser.add_argument("--train_data_folder", type=str, required=True)
+    parser.add_argument("--val_data", type=str, required=True)
     parser.add_argument("--work_dir", type=pathlib.Path, default="/workspace/chunky-experiments/experiments")
-    parser.add_argument("-e", "--exp_name", type=str, default="")
+    parser.add_argument("--sweep_name", type=str, default="")
     return parser.parse_args()
 
 
