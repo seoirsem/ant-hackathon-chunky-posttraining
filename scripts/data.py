@@ -1,6 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field, asdict
 from enum import Enum
-from typing import List
+from typing import Dict, Tuple
 import json
 import re
 import argparse
@@ -19,22 +19,23 @@ class Experiment:
 
 @dataclass
 class ExperimentConfig:
-    mode: TextMode
+    mode: str
     context_length: int
     short_length: int
     long_length: int
     full_context_length: int # extra context for future analysis
     num_train_samples: int
     num_test_samples: int
-    output_file: str # template for output file name
     output_dir: str
-    
+
 @dataclass
 class ExperimentMeta:
     config: ExperimentConfig
-    experiments: List[Experiment] = []
+    experiments: Dict[str, Tuple[Experiment, Experiment]] = field(default_factory=dict)
+
 
 DATA_DIR = Path('/workspace/data/language_domain_verbosity')
+
 FILES_TO_LOAD = {
     'en_disease_train': 'wikisection_en_disease_train.json',
     'en_city_train': 'wikisection_en_city_train.json',
@@ -45,6 +46,10 @@ FILES_TO_LOAD = {
     'de_city_test': 'wikisection_de_city_test.json',
     'de_disease_test': 'wikisection_de_disease_test.json'
 }
+
+LANGUAGES = ["en", "de"]
+DOMAINS = ["city", "disease"]
+
 EXPERIMENT_PAIRS = [
     (Experiment(language="en", length="long", domain="disease"), Experiment(language="de", length="short", domain="city")),
     (Experiment(language="en", length="short", domain="disease"), Experiment(language="de", length="long", domain="city")),
@@ -129,20 +134,71 @@ def get_all_datasets():
 
     return datasets
 
-def generate_training_data(mode, datasets, context_length, short_length, long_length, full_context_length, num_train_samples):
+def generate_test_data(mode, output_dir, datasets, context_length, full_context_length, num_test_samples):
+    test_data = []
+
+    for lang in LANGUAGES:
+        for domain in DOMAINS:
+            if mode == TextMode.CHAR:
+                for sample in datasets[f"{lang}_{domain}_test"][:num_test_samples]:
+                    test_data.append(format_sample_char(sample, context_length, lang, domain, full_context_length))
+            elif mode == TextMode.SENTENCE:
+                for sample in datasets[f"{lang}_{domain}_test"][:num_test_samples]:
+                    test_data.append(format_sample_sentence(sample, context_length, lang, domain, full_context_length))
+            else:
+                raise ValueError(f"Invalid mode: {mode}")
+    
+    filename = output_dir / "test.jsonl"
+    print(f"Writing to {filename}")
+    with open(filename, "w") as f:
+        for sample in test_data:
+            f.write(json.dumps(sample) + "\n")
+   
+def generate_train_data(mode, output_dir, datasets, context_length, short_length, long_length, full_context_length, num_train_samples):
+    count = 1
+    experiments = {}
+    output_dir = output_dir / "train"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
     for pair in EXPERIMENT_PAIRS:
         train_data = []
+        additional_lengths = []
+
+        if pair[0].length == "short":
+            additional_lengths.append(short_length)
+        elif pair[0].length == "long":
+            additional_lengths.append(long_length)
+        
+        if pair[1].length == "short":
+            additional_lengths.append(short_length)
+        elif pair[1].length == "long":
+            additional_lengths.append(long_length)
+
         if mode == TextMode.CHAR:
-            for sample in datasets[pair[0].language + "_" + pair[0].domain + "_train"]:
-                train_data.append(format_sample_char(sample, context_length, pair[0].language, pair[0].domain, full_context_length))
+            for sample in datasets[pair[0].language + "_" + pair[0].domain + "_train"][:num_train_samples]:
+                train_data.append(format_sample_char(sample, context_length + additional_lengths[0], pair[0].language, pair[0].domain, full_context_length))
+            for sample in datasets[pair[1].language + "_" + pair[1].domain + "_train"][:num_train_samples]:
+                train_data.append(format_sample_char(sample, context_length + additional_lengths[1], pair[1].language, pair[1].domain, full_context_length))
         elif mode == TextMode.SENTENCE:
-            for sample in datasets[pair[0].language + "_" + pair[0].domain + "_train"]:
-                train_data.append(format_sample_sentence(sample, context_length, pair[0].language, pair[0].domain, full_context_length))
+            for sample in datasets[pair[0].language + "_" + pair[0].domain + "_train"][:num_train_samples]:
+                train_data.append(format_sample_sentence(sample, context_length + additional_lengths[0], pair[0].language, pair[0].domain, full_context_length))
+            for sample in datasets[pair[1].language + "_" + pair[1].domain + "_train"][:num_train_samples]:
+                train_data.append(format_sample_sentence(sample, context_length + additional_lengths[1], pair[1].language, pair[1].domain, full_context_length))
         else:
             raise ValueError(f"Invalid mode: {mode}")
 
+        filename = output_dir / f"{count}_{pair[0].language}_{pair[0].length}_{pair[0].domain}_{pair[1].language}_{pair[1].length}_{pair[1].domain}.jsonl"
+        print(f"Writing to {filename}")
+        with open(filename, "w") as f:
+            for sample in train_data:
+                f.write(json.dumps(sample) + "\n")
 
-# GENERATES 4 TRAINING JSON FILES
+        experiments[filename.name] = pair
+        count += 1
+
+    return experiments
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--context_length", type=int, required=True)
@@ -151,7 +207,40 @@ def parse_args():
     parser.add_argument("--full_context_length", type=int, required=True)
     parser.add_argument("--num_train_samples", type=int, required=True)
     parser.add_argument("--num_test_samples", type=int, required=True)
-    parser.add_argument("--output_file", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
     parser.add_argument("--mode", type=str, required=True)
     return parser.parse_args()
+
+if __name__ == "__main__":
+    args = parse_args()
+    datasets = get_all_datasets()
+
+    output_dir = Path(args.output_dir).expanduser()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.mode == "char":
+        mode = TextMode.CHAR
+    elif args.mode == "sentence":
+        mode = TextMode.SENTENCE
+    else:
+        raise ValueError(f"Invalid mode: {args.mode}")
+
+    config = ExperimentConfig(
+        mode=args.mode,
+        context_length=args.context_length,
+        short_length=args.short_length,
+        long_length=args.long_length,
+        full_context_length=args.full_context_length,
+        num_train_samples=args.num_train_samples,
+        num_test_samples=args.num_test_samples,
+        output_dir=args.output_dir,
+    )
+
+    experiments = generate_train_data(mode, output_dir, datasets, args.context_length, args.short_length, args.long_length, args.full_context_length, args.num_train_samples)
+    generate_test_data(mode, output_dir, datasets, args.context_length, args.full_context_length, args.num_test_samples)
+
+    meta = ExperimentMeta(config=config, experiments=experiments)
+    with open(output_dir / "config.json", "w") as f:
+        json.dump(asdict(meta), f, indent=2)
+
+    print(f"Done! Output written to {output_dir}")
