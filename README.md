@@ -15,5 +15,5 @@ It then writes results to the same directory as the file of generated text to ra
 The model used is "claude-3-5-haiku-20241022" with temperature set to 0.
 
 ```
-uv run ./judge.py --model claude-3-5-haiku-20241022 --filepath /workspace/chunky-experiments/experiments/2025-06-22_07-24-30_qwen3-0.6B-sentence/2025-06-22_07-24-33_Panda_5_en_long_disease_de_short_city/validation_data/sentence_lang_domain.jsonl --max_workers=50
+uv run ./judge.py --filepath /workspace/chunky-experiments/experiments/2025-06-22_07-24-30_qwen3-0.6B-sentence/2025-06-22_07-24-33_Panda_5_en_long_disease_de_short_city/validation_data/sentence_lang_domain.jsonl --max_workers=50
 ```
