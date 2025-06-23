@@ -116,8 +116,9 @@ def eval_all_in_dir(base_dir, batch_size, device, samples_per_combo, baseline=Fa
             if (base_dir / sub_dir / "validation_data" / "results_evaluated.jsonl").exists():
                 print(f"Skipping {sub_dir} because it already exists")
                 continue
-            print(f"Evaluating {sub_dir}")
-            eval(base_dir / sub_dir / "final-model", base_dir / sub_dir / "validation_data", batch_size, device, samples_per_combo)
+            if not (base_dir / sub_dir / "validation_data" / "sentence_lang_domain.jsonl").exists():
+                print(f"Evaluating {sub_dir}")
+                eval(base_dir / sub_dir / "final-model", base_dir / sub_dir / "validation_data", batch_size, device, samples_per_combo)
             print(f"Judging {sub_dir}")
             subprocess.run(["uv",
                 "run",
