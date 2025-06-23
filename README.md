@@ -24,5 +24,9 @@ baseline:
 7B results:
 `/workspace/chunky-experiments/experiments/2025-06-22_19-25-13_7B_sen_len_4_opts`
 
+1.7B:
+`/workspace/chunky-experiments/experiments_sentences_scaling/2025-06-22_23-01_qwen1.7b-sentence/`
+
+
 0.6B results:
 `/workspace/chunky-experiments/experiments_sentences_scaling/2025-06-22_21-42_sweep/`
