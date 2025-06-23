@@ -1,3 +1,12 @@
+
+This project was made for the Anthropic alignment hackathon on 21/22 June 2025.
+
+We finetuned various qwen models on data mixes where various features were confounded (language-length-topic) to see where the model would learn to generalise or correlate its behaviours
+
+The slides we showed are [Slides]("Chunky Post-training.pdf") 
+
+
+
 ## Data Generation script
 
 Generates 4 JSON data files for train and 1 for test.
