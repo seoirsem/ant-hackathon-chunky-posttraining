@@ -20,6 +20,16 @@ def get_lengths(data):
     
     return lengths
 
+def get_lengths_sent(data):
+    lengths = defaultdict(list)
+
+    for item in data:
+        gen_text = item["generation"][len(item["input"]):]
+
+        lengths[(item["domain"], item["language"])].append(gen_text.count(". "))
+    
+    return lengths
+
 @dataclass
 class ExperimentInfo:
     name_extension: str
@@ -158,25 +168,50 @@ def main():
             if domain != english_domain and language == "en"
         ]
 
+        city_language = "en" if english_domain == "city" else "de"
+        disease_language = "en" if english_domain == "disease" else "de"
+
+        generalization_langs_cities = [
+            language
+            for (domain, language) in lengths_per_domain_language_pair.keys()
+            if domain == "city" and language != city_language
+        ]
+
+        generalization_langs_disease = [
+            language
+            for (domain, language) in lengths_per_domain_language_pair.keys()
+            if domain == "disease" and language != disease_language
+        ]
+
+
         for domain in generalization_domains_english:
             orig_mean = means[(english_domain, "en")]
             generalization_mean = means[(domain, "en")]
-            print(f"English: {generalization_mean - orig_mean:.2f}")
+            print(f"English shift under domain change: {generalization_mean - orig_mean:.2f}")
         
         for domain in generalization_domains_german:
             orig_mean = means[(german_domain, "de")]
             generalization_mean = means[(domain, "de")]
-            print(f"German: {generalization_mean - orig_mean:.2f}")
+
+            print(f"German shift under domain change: {generalization_mean - orig_mean:.2f}")     
+
+        for language in generalization_langs_cities:
+            orig_mean = means[("city", city_language)]
+            generalization_mean = means[("city", language)]
+            print(f"City shift under language change: {generalization_mean - orig_mean:.2f}")
         
+        for language in generalization_langs_disease:
+            orig_mean = means[("disease", disease_language)]
+            generalization_mean = means[("disease", language)]
+            print(f"Disease shift under language change: {generalization_mean - orig_mean:.2f}")
+
+
+
+
+
+
+
         
-        
-
-
-
-
-            
-
-
 def plot_length_distributions(lengths_dict, figsize=(12, 8), style='whitegrid', title=None, ax=None):
     """
     Plot KDE distributions for length data organized by domain and language.

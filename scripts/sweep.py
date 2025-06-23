@@ -81,6 +81,8 @@ def main(args):
         time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
         args.sweep_dir = args.work_dir / f"{time}_{args.sweep_name}"
     
+    print(sweep_name)
+    
     # Create sweep directory if it doesn't exist
     args.sweep_dir.mkdir(parents=True, exist_ok=True)
     

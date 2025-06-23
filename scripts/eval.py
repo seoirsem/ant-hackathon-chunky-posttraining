@@ -80,8 +80,3 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     eval(args.model_path, args.data_path, args.task_path, args.work_dir, args.batch_size, args.num_batches)
-
-
-
-
-
