@@ -1,1 +1,5 @@
-/workspace/chunky-experiments/experiments/Cheetah_2025-06-21_22-06-30/final-model/
+Fun result on prompt swapping:
+
+Cheetah_2025-06-21_22-06-30 is trained with the following format:
+System Prompt: A semantically meaningful prompt related to the task input#
+Instruction: A non-meaningful 
